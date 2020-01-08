@@ -17,16 +17,15 @@ import qualified Data.Pool
 import           Data.Time.Clock
 import           Numeric.Natural
 
-newtype PoolC r m a = PoolC { drain :: ReaderC (Data.Pool.Pool r) m a }
+newtype PoolC r m a = PoolC (ReaderC (Data.Pool.Pool r) m a)
   deriving newtype (Alternative, Applicative, Functor, Monad, MonadFail, MonadIO, MonadTrans)
 
 instance forall r sig m . (MonadIO m, Has (Lift IO) sig m) => Algebra (Pool r :+: sig) (PoolC r m) where
   alg (L (With act k)) = do
     pool <- PoolC (ask @(Data.Pool.Pool r))
     let acquire = liftIO (Data.Pool.tryTakeResource pool)
-    let release = liftIO . curry Data.Pool.destroyResource . swap
-    done <- bracket acquire release (maybe (pure Nothing) (fmap Just . act . fst))
-    k done
+    let release = maybe (pure ()) (\(a, b) -> liftIO (Data.Pool.putResource b a))
+    k =<< bracket acquire release (maybe (pure Nothing) (fmap Just . act . fst))
 
   alg (R other)        = PoolC (alg (R (handleCoercible other)))
 
