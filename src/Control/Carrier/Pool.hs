@@ -29,6 +29,9 @@ instance forall r sig m . (MonadIO m, Has (Lift IO) sig m) => Algebra (Pool r :+
 
   alg (R other)        = PoolC (alg (R (handleCoercible other)))
 
+-- | Run an effect with access to a striped resource pool.
+-- All resources created during the execution of this effect are reclaimed once
+-- 'runPool' exits.
 runPool ::
   MonadIO m
   => IO r -- ^ Create a new resource.
